@@ -43,6 +43,12 @@ def _extract_price(soup: BeautifulSoup) -> Optional[str]:
     return match.group(0) if match else None
 
 
+def _element_label(el) -> str:
+    return " ".join(
+        filter(None, [el.get_text(" ", strip=True), el.get("value", ""), el.get("title", "")])
+    ).lower()
+
+
 def parse_stock_from_html(html: str) -> StockResult:
     """Deterministically inspect HTML for HMT product availability signals."""
     soup = BeautifulSoup(html, "html.parser")
@@ -52,11 +58,31 @@ def parse_stock_from_html(html: str) -> StockResult:
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
 
-    # Check interactive buttons / inputs first
-    for el in soup.find_all(["button", "input", "a"]):
-        label = " ".join(
-            filter(None, [el.get_text(" ", strip=True), el.get("value", ""), el.get("title", "")])
-        ).lower()
+    # 1. Check HMT's #notifyMe control or explicit out-of-stock text FIRST
+    #    (prevents false positives from related-product/modal Add-to-Cart buttons).
+    notify_el = soup.find(id="notifyMe")
+    if notify_el is not None:
+        return StockResult(
+            status="OUT_OF_STOCK",
+            reason="Found #notifyMe button ('Notify Me').",
+            price=price,
+        )
+
+    page_text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).lower()
+    for phrase in OUT_OF_STOCK_PHRASES:
+        if phrase in page_text:
+            return StockResult(
+                status="OUT_OF_STOCK",
+                reason=f"Found out-of-stock indicator: '{phrase}'",
+                price=price,
+            )
+
+    # 2. Scope purchase-button check to the main product .action container when present
+    action_container = soup.select_one("div.action")
+    search_root = action_container if action_container is not None else soup
+
+    for el in search_root.find_all(["button", "input", "a"]):
+        label = _element_label(el)
         if not label:
             continue
 
@@ -65,15 +91,6 @@ def parse_stock_from_html(html: str) -> StockResult:
             return StockResult(
                 status="IN_STOCK",
                 reason=f"Active purchase control found: '{label[:60]}'",
-                price=price,
-            )
-
-    page_text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).lower()
-    for phrase in OUT_OF_STOCK_PHRASES:
-        if phrase in page_text:
-            return StockResult(
-                status="OUT_OF_STOCK",
-                reason=f"Found out-of-stock indicator: '{phrase}'",
                 price=price,
             )
 

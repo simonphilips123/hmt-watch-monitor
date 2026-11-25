@@ -58,6 +58,24 @@ class TestStockParser(unittest.TestCase):
         result = parse_stock_from_html(html)
         self.assertEqual(result.status, "UNKNOWN")
 
+    def test_hmt_out_of_stock_ignores_unrelated_add_to_cart_buttons(self) -> None:
+        html = """
+        <html><body>
+          <h1>HMT MEN'S GANDABERUNDA JGSS 01</h1>
+          <span class="price">₹2599</span>
+          <strong>Out Of Stock</strong>
+          <div class="action">
+            <a id="notifyMe" class="add-to-cart btn btn-default">Notify Me</a>
+          </div>
+          <div class="btn-ground">
+            <button class="btn btn-primary add_to_cart">Add To Cart</button>
+          </div>
+        </body></html>
+        """
+        result = parse_stock_from_html(html)
+        self.assertEqual(result.status, "OUT_OF_STOCK")
+        self.assertEqual(result.price, "₹2599")
+
 
 class TestCheckStockWithGeminiFallback(unittest.TestCase):
     @patch("src.checker.requests.post")
