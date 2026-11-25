@@ -1,0 +1,44 @@
+name: HMT Watch Stock Monitor
+
+on:
+  schedule:
+    # Runs every 30 minutes (UTC)
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_notify:
+        description: "Send a test WhatsApp message instead of checking stock"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run stock monitor
+        env:
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PRODUCT_URL: https://www.hmtwatches.in/product-1180-hmt-mens-gandaberunda-jgss-01
+        run: |
+          if [ "${{ github.event.inputs.test_notify }}" = "true" ]; then
+            python -m src.main --test-notify
+          else
+            python -m src.main
+          fi
