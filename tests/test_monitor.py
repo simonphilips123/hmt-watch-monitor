@@ -58,6 +58,11 @@ class TestStockParser(unittest.TestCase):
         result = parse_stock_from_html(html)
         self.assertEqual(result.status, "UNKNOWN")
 
+    def test_detects_coming_soon_as_out_of_stock(self) -> None:
+        html = "<html><body><h1>HMT Watch</h1><p>Coming Soon</p></body></html>"
+        result = parse_stock_from_html(html)
+        self.assertEqual(result.status, "OUT_OF_STOCK")
+
     def test_hmt_out_of_stock_ignores_unrelated_add_to_cart_buttons(self) -> None:
         html = """
         <html><body>
@@ -158,6 +163,21 @@ class TestMainCLI(unittest.TestCase):
     )
     def test_test_notify_flag(self, mock_alert: MagicMock) -> None:
         exit_code = main(["--test-notify"])
+        self.assertEqual(exit_code, 0)
+        mock_alert.assert_called_once()
+
+    @patch("src.main.send_alert", return_value=["telegram"])
+    @patch("src.main.check_stock")
+    @patch.dict(
+        "os.environ",
+        {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "999"},
+        clear=False,
+    )
+    def test_notifies_on_unknown_by_default(self, mock_check: MagicMock, mock_alert: MagicMock) -> None:
+        from src.checker import StockResult
+
+        mock_check.return_value = StockResult(status="UNKNOWN", reason="Layout changed", price=None)
+        exit_code = main([])
         self.assertEqual(exit_code, 0)
         mock_alert.assert_called_once()
 

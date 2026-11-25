@@ -42,5 +42,5 @@ def load_config() -> Config:
         callmebot_apikey=os.getenv("CALLMEBOT_APIKEY", "").strip(),
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
         request_timeout=request_timeout,
-        notify_on_unknown=os.getenv("NOTIFY_ON_UNKNOWN", "false").strip().lower() == "true",
+        notify_on_unknown=os.getenv("NOTIFY_ON_UNKNOWN", "true").strip().lower() == "true",
     )

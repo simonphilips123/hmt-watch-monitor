@@ -18,6 +18,7 @@ OUT_OF_STOCK_PHRASES = (
     "sold out",
     "currently unavailable",
     "notify me when available",
+    "coming soon",
 )
 
 IN_STOCK_BUTTON_PHRASES = (
