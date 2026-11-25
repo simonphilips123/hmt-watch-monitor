@@ -1,11 +1,30 @@
-"""Unit tests for the HMT watch stock monitor and CallMeBot notifier."""
+"""Unit tests for the HMT watch stock monitor and multi-channel notifier."""
 
 import unittest
 from unittest.mock import MagicMock, patch
 
 from src.checker import check_stock, parse_stock_from_html
+from src.config import Config
 from src.main import main
-from src.notifier import send_whatsapp_callmebot
+from src.notifier import send_alert, send_telegram, send_whatsapp_callmebot, send_whatsapp_cloud
+
+
+def _make_config(**overrides) -> Config:
+    defaults = {
+        "product_url": "https://example.com/watch",
+        "telegram_bot_token": "",
+        "telegram_chat_id": "",
+        "whatsapp_token": "",
+        "whatsapp_phone_number_id": "",
+        "whatsapp_to": "",
+        "callmebot_phone": "",
+        "callmebot_apikey": "",
+        "gemini_api_key": "",
+        "request_timeout": 20,
+        "notify_on_unknown": False,
+    }
+    defaults.update(overrides)
+    return Config(**defaults)
 
 
 class TestStockParser(unittest.TestCase):
@@ -69,9 +88,29 @@ class TestCheckStockWithGeminiFallback(unittest.TestCase):
 
 
 class TestNotifier(unittest.TestCase):
-    def test_raises_when_credentials_missing(self) -> None:
+    def test_send_alert_raises_when_no_channel_configured(self) -> None:
         with self.assertRaises(ValueError):
-            send_whatsapp_callmebot("", "", "hello")
+            send_alert(_make_config(), "hello")
+
+    @patch("src.notifier.requests.post")
+    def test_sends_telegram_message(self, mock_post: MagicMock) -> None:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        mock_post.return_value = resp
+
+        ok = send_telegram("bot-token", "12345", "Watch in stock!")
+        self.assertTrue(ok)
+        mock_post.assert_called_once()
+
+    @patch("src.notifier.requests.post")
+    def test_sends_whatsapp_cloud_message(self, mock_post: MagicMock) -> None:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        mock_post.return_value = resp
+
+        ok = send_whatsapp_cloud("wa-token", "987654", "+919999999999", "Watch in stock!")
+        self.assertTrue(ok)
+        mock_post.assert_called_once()
 
     @patch("src.notifier.requests.get")
     def test_sends_callmebot_message(self, mock_get: MagicMock) -> None:
@@ -84,18 +123,25 @@ class TestNotifier(unittest.TestCase):
         self.assertTrue(ok)
         mock_get.assert_called_once()
 
+    @patch("src.notifier.send_telegram", return_value=True)
+    def test_send_alert_uses_configured_telegram(self, mock_tg: MagicMock) -> None:
+        cfg = _make_config(telegram_bot_token="tok", telegram_chat_id="999")
+        channels = send_alert(cfg, "Alert!")
+        self.assertEqual(channels, ["telegram"])
+        mock_tg.assert_called_once()
+
 
 class TestMainCLI(unittest.TestCase):
-    @patch("src.main.send_whatsapp_callmebot")
+    @patch("src.main.send_alert", return_value=["telegram"])
     @patch.dict(
         "os.environ",
-        {"CALLMEBOT_PHONE": "+919999999999", "CALLMEBOT_APIKEY": "123456"},
+        {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "999"},
         clear=False,
     )
-    def test_test_notify_flag(self, mock_notify: MagicMock) -> None:
+    def test_test_notify_flag(self, mock_alert: MagicMock) -> None:
         exit_code = main(["--test-notify"])
         self.assertEqual(exit_code, 0)
-        mock_notify.assert_called_once()
+        mock_alert.assert_called_once()
 
 
 if __name__ == "__main__":

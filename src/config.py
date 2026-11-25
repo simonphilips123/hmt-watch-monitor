@@ -11,6 +11,11 @@ class Config:
     """Runtime configuration loaded from environment variables."""
 
     product_url: str
+    telegram_bot_token: str
+    telegram_chat_id: str
+    whatsapp_token: str
+    whatsapp_phone_number_id: str
+    whatsapp_to: str
     callmebot_phone: str
     callmebot_apikey: str
     gemini_api_key: str
@@ -28,6 +33,11 @@ def load_config() -> Config:
 
     return Config(
         product_url=os.getenv("PRODUCT_URL", DEFAULT_PRODUCT_URL).strip(),
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
+        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+        whatsapp_token=os.getenv("WHATSAPP_TOKEN", "").strip(),
+        whatsapp_phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
+        whatsapp_to=os.getenv("WHATSAPP_TO", "").strip(),
         callmebot_phone=os.getenv("CALLMEBOT_PHONE", "").strip(),
         callmebot_apikey=os.getenv("CALLMEBOT_APIKEY", "").strip(),
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
